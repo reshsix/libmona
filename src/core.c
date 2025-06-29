@@ -1,17 +1,18 @@
 /*
-This file is part of MonaEphemeris.
-
-MonaEphemeris is free software: you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published
-by the Free Software Foundation, version 3.
-
-MonaEphemeris is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with MonaEphemeris. If not, see <https://www.gnu.org/licenses/>.
+ *  This file is part of libmona
+ *
+ *  Libmona is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2.1 of the License, or (at your option) any later version.
+ *
+ *  Libmona is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *  See the GNU Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with libmona; if not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <math.h>
@@ -22,6 +23,10 @@ along with MonaEphemeris. If not, see <https://www.gnu.org/licenses/>.
 #include <mona/core.h>
 
 /* Auxiliary functions */
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 static double
 degrees(double rad)
@@ -458,34 +463,123 @@ pos_medium_coeli(double j2k, double longitude)
     return fmod(pos_imum_coeli(j2k, longitude) + 180.0, 360.0);
 }
 
-/* Other considerations */
+/* Astrologic conversions */
 
-static void
-solar_data(struct mona_chart *c, double j2k, double latitude, double longitude)
+extern struct mona_waypoint
+mona_waypoint(time_t utc, double latitude, double longitude)
 {
-    /* Sunrise / Sunset */
-    double mst = floor(j2k) - (longitude / 360.0);
+    struct mona_waypoint ret = {0};
+
+    ret.latitude = latitude;
+    ret.longitude = longitude;
+    ret.j2k = j2000(utc);
+
+    ret.T = variable_T(ret.j2k);
+    ref_earth(&(ret.X), &(ret.Y), ret.T);
+
+    return ret;
+}
+
+extern struct mona_zodiac
+mona_zodiac(struct mona_waypoint p, enum mona_object o)
+{
+    /* Zodiac object position */
+    struct mona_zodiac ret = {0};
+
+    double deg = 0;
+    switch (o)
+    {
+        case MONA_OBJECT_MOON:
+            deg = pos_moon(p.T);
+            break;
+        case MONA_OBJECT_MERCURY:
+            deg = pos_mercury(p.X, p.Y, p.T);
+            break;
+        case MONA_OBJECT_VENUS:
+            deg = pos_venus(p.X, p.Y, p.T);
+            break;
+        case MONA_OBJECT_SUN:
+            deg = pos_sun(p.X, p.Y);
+            break;
+        case MONA_OBJECT_MARS:
+            deg = pos_mars(p.X, p.Y, p.T);
+            break;
+        case MONA_OBJECT_JUPITER:
+            deg = pos_jupiter(p.X, p.Y, p.T);
+            break;
+        case MONA_OBJECT_SATURN:
+            deg = pos_saturn(p.X, p.Y, p.T);
+            break;
+
+        case MONA_OBJECT_ASCENDANT:
+            deg = pos_ascendant(p.j2k, p.latitude, p.longitude);
+            break;
+        case MONA_OBJECT_DESCENDANT:
+            deg = pos_descendant(p.j2k, p.latitude, p.longitude);
+            break;
+        case MONA_OBJECT_MEDIUM_COELI:
+            deg = pos_medium_coeli(p.j2k, p.longitude);
+            break;
+        case MONA_OBJECT_IMUM_COELI:
+            deg = pos_imum_coeli(p.j2k, p.longitude);
+            break;
+        default:
+            break;
+    }
+    ret.position = deg;
+
+    ret.sign = floor(deg / 30.0);
+    deg = fmod(deg, 30.0);
+
+    ret.decan = floor(deg / 10.0);
+    ret.degrees = floor(deg);
+    deg = fmod(deg, 1.0);
+
+    ret.seconds = round(deg * 60.0);
+
+    return ret;
+}
+
+extern struct mona_lunar
+mona_lunar(struct mona_waypoint p)
+{
+    /* Moon phase calculations */
+    struct mona_lunar ret = {0};
+
+    double length = 29.53059;
+
+    double age = fmod(p.j2k + 142.25, length);
+    age = (age < 0.0) ? age + length : age;
+    ret.age = age;
+
+    double deg = (age / length) * 360.0;
+    ret.phase = floor(deg / 45.0);
+    ret.degree = deg;
+
+    ret.beginning = epoch(p.j2k - age);
+    ret.ending = epoch(p.j2k + (length - age));
+
+    return ret;
+}
+
+extern struct mona_solar
+mona_solar(struct mona_waypoint p)
+{
+    /* Solar calculations */
+    struct mona_solar ret = {0};
+
+    double mst = floor(p.j2k) - (p.longitude / 360.0);
     double M = fmod(357.5291 + 0.98560028 * mst, 360.0);
     double C = 1.9148 * sin(radians(M)) +
                  0.02 * sin(radians(2.0 * M)) +
                0.0003 * sin(radians(3.0 * M));
     double el = fmod((M + C + 180.0 + 102.9372), 360.0);
 
-    double jt = mst + 0.0053 * sin(radians(M)) -
-                      0.0069 * sin(radians(2.0 * el));
+    ret.degree = el;
 
-    double dec = asin(sin(radians(el)) * 0.39778370349);
-    double hr = acos((-0.0145380805 - sin(radians(latitude)) * sin(dec)) /
-                                     (cos(radians(latitude)) * cos(dec)));
-    hr /= (2.0 * M_PI);
-
-    c->solar.sunrise = epoch(jt - hr);
-    c->solar.sunset  = epoch(jt + hr);
-
-    /* Season calculations */
-    c->solar.degree = el;
-    c->solar.age = (el / 360.0) * 365.25;
-    c->solar.phase = el / 90.0;
+    uint8_t phase = el / 90.0;
+    double age = (el / 360.0) * 365.25;
+    ret.age = age;
 
     double coeffs[4][5] = {
         {2451623.80984, 365242.37404,  0.05169, -0.00411, -0.00057},
@@ -494,14 +588,17 @@ solar_data(struct mona_chart *c, double j2k, double latitude, double longitude)
         {2451900.05952, 365242.74049, -0.06223, -0.00823,  0.00032}
     };
 
-    uint8_t sources[] = {c->solar.phase, (c->solar.phase + 1) % 4};
-    time_t *targets[] = {&(c->solar.beginning), &(c->solar.ending)};
+    time_t beg = 0.0;
+    time_t end = 0.0;
+
+    uint8_t sources[] = {phase, (phase + 1) % 4};
+    time_t *targets[] = {&(beg), &(end)};
     for (int i = 0; i < 2; i++)
     {
-        double delta = ((i == 0) ? 90.0 : 90.0) - fmod(c->solar.age, 90.0);
+        double delta = ((i == 0) ? 90.0 : 90.0) - fmod(age, 90.0);
 
         uint8_t x = sources[i];
-        double T = floor((j2k + delta) / 365.25) / 1000.0;
+        double T = floor((p.j2k + delta) / 365.25) / 1000.0;
 
         double date = coeffs[x][0] + coeffs[x][1] * T +
                                      coeffs[x][2] * T * T +
@@ -509,81 +606,38 @@ solar_data(struct mona_chart *c, double j2k, double latitude, double longitude)
                                      coeffs[x][4] * T * T * T * T;
         *(targets[i]) = epoch(date - 2451545.0);
     }
-    c->solar.phase = fmod(c->solar.phase + 2.0 * (latitude < 0.0), 4.0);
+
+    ret.season = fmod(phase + 2.0 * (p.latitude < 0.0), 4.0);
+    ret.beginning = beg;
+    ret.ending = end;
+
+    /* Sunrise / Sunset */
+    double jt = mst + 0.0053 * sin(radians(M)) -
+                      0.0069 * sin(radians(2.0 * el));
+
+    double dec = asin(sin(radians(el)) * 0.39778370349);
+    double hr = acos((-0.0145380805 - sin(radians(p.latitude)) * sin(dec)) /
+                                     (cos(radians(p.latitude)) * cos(dec)));
+    hr /= (2.0 * M_PI);
+
+    ret.sunrise = epoch(jt - hr);
+    ret.sunset  = epoch(jt + hr);
 
     /* Planetary day and hour */
-    c->solar.day = fmod(fmod(floor(j2k - 1.0), 7.0) + 7.0, 7.0);
-    switch (c->solar.day)
+    enum mona_day d = fmod(fmod(floor(p.j2k - 1.0), 7.0) + 7.0, 7.0);
+    ret.day = d;
+
+    switch (d)
     {
-        case MONA_DAY_SUN:     c->solar.hour = MONA_HOUR_SUN;     break;
-        case MONA_DAY_MOON:    c->solar.hour = MONA_HOUR_MOON;    break;
-        case MONA_DAY_MARS:    c->solar.hour = MONA_HOUR_MARS;    break;
-        case MONA_DAY_MERCURY: c->solar.hour = MONA_HOUR_MERCURY; break;
-        case MONA_DAY_JUPITER: c->solar.hour = MONA_HOUR_JUPITER; break;
-        case MONA_DAY_VENUS:   c->solar.hour = MONA_HOUR_VENUS;   break;
-        case MONA_DAY_SATURN:  c->solar.hour = MONA_HOUR_SATURN;  break;
+        case MONA_DAY_SUN:     ret.hour = MONA_HOUR_SUN;     break;
+        case MONA_DAY_MOON:    ret.hour = MONA_HOUR_MOON;    break;
+        case MONA_DAY_MARS:    ret.hour = MONA_HOUR_MARS;    break;
+        case MONA_DAY_MERCURY: ret.hour = MONA_HOUR_MERCURY; break;
+        case MONA_DAY_JUPITER: ret.hour = MONA_HOUR_JUPITER; break;
+        case MONA_DAY_VENUS:   ret.hour = MONA_HOUR_VENUS;   break;
+        case MONA_DAY_SATURN:  ret.hour = MONA_HOUR_SATURN;  break;
     }
-    c->solar.hour = fmod((j2k - (jt - hr)) / (hr / 6.0) + c->solar.hour, 7.0);
-}
+    ret.hour = fmod((p.j2k - (jt - hr)) / (hr / 6.0) + ret.hour, 7.0);
 
-static void
-lunar_data(struct mona_chart *c, double j2k)
-{
-    double length = 29.53059;
-
-    double age = fmod(j2k + 142.25, length);
-    c->lunar.age = (age < 0.0) ? age + length : age;
-    c->lunar.degree = (c->lunar.age / length) * 360.0;
-    c->lunar.phase = floor(c->lunar.degree / 45.0);
-
-    c->lunar.beginning = epoch(j2k - age);
-    c->lunar.ending = epoch(j2k + (length - age));
-}
-
-/* Astrologic conversions */
-
-static void
-parse_position(struct mona_object *o, double pos)
-{
-    o->position = pos;
-    o->sign = floor(pos / 30.0);
-    pos = fmod(pos, 30.0);
-    o->decan = floor(pos / 10.0);
-    o->degrees = floor(pos);
-    pos = fmod(pos, 1.0);
-    o->seconds = round(pos * 60.0);
-}
-
-extern void
-mona_chart(struct mona_chart *c, time_t utc,
-           double latitude, double longitude)
-{
-    double j2k = j2000(utc);
-
-    solar_data(c, j2k, latitude, longitude);
-    lunar_data(c, j2k);
-
-    for (int i = 0; i < MONA_OBJECT_COUNT; i++)
-        c->objects[i].id = i;
-
-    double X = 0.0, Y = 0.0;
-    double T = variable_T(j2k);
-
-    ref_earth(&X, &Y, T);
-    parse_position(&(c->objects[MONA_OBJECT_MOON]),       pos_moon(      T));
-    parse_position(&(c->objects[MONA_OBJECT_MERCURY]), pos_mercury(X, Y, T));
-    parse_position(&(c->objects[MONA_OBJECT_VENUS]),     pos_venus(X, Y, T));
-    parse_position(&(c->objects[MONA_OBJECT_SUN]),         pos_sun(X, Y   ));
-    parse_position(&(c->objects[MONA_OBJECT_MARS]),       pos_mars(X, Y, T));
-    parse_position(&(c->objects[MONA_OBJECT_JUPITER]), pos_jupiter(X, Y, T));
-    parse_position(&(c->objects[MONA_OBJECT_SATURN]),   pos_saturn(X, Y, T));
-
-    parse_position(&(c->objects[MONA_OBJECT_ASCENDANT]),
-                   pos_ascendant(j2k, latitude, longitude));
-    parse_position(&(c->objects[MONA_OBJECT_DESCENDANT]),
-                   pos_descendant(j2k, latitude, longitude));
-    parse_position(&(c->objects[MONA_OBJECT_MEDIUM_COELI]),
-                   pos_medium_coeli(j2k, longitude));
-    parse_position(&(c->objects[MONA_OBJECT_IMUM_COELI]),
-                   pos_imum_coeli(j2k, longitude));
+    return ret;
 }

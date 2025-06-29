@@ -1,17 +1,18 @@
 /*
-This file is part of MonaEphemeris.
-
-MonaEphemeris is free software: you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published
-by the Free Software Foundation, version 3.
-
-MonaEphemeris is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with MonaEphemeris. If not, see <https://www.gnu.org/licenses/>.
+ *  This file is part of libmona
+ *
+ *  Libmona is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2.1 of the License, or (at your option) any later version.
+ *
+ *  Libmona is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *  See the GNU Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with libmona; if not, see <https://www.gnu.org/licenses/>.
 */
 
 #ifndef MONA_CORE_H
@@ -85,7 +86,7 @@ enum mona_moon
     MONA_MOON_WANING_CRESCENT
 };
 
-enum mona_objects
+enum mona_object
 {
     MONA_OBJECT_MOON,
     MONA_OBJECT_MERCURY,
@@ -103,39 +104,42 @@ enum mona_objects
     MONA_OBJECT_COUNT
 };
 
-struct mona_object
+struct mona_waypoint
 {
-    enum mona_objects id;
+    double j2k, latitude, longitude;
+    double X, Y, T;
+};
+
+struct mona_waypoint mona_waypoint(time_t utc,
+                                   double latitude, double longitude);
+
+struct mona_zodiac
+{
     double position;
     enum mona_sign sign;
     enum mona_decan decan;
     uint8_t degrees, seconds;
 };
 
-struct mona_chart
+struct mona_lunar
 {
-    struct
-    {
-        double degree, age;
-        enum mona_season phase;
-        time_t beginning, ending;
-
-        time_t sunrise, sunset;
-        enum mona_day day;
-        enum mona_hour hour;
-    } solar;
-
-    struct
-    {
-        double degree, age;
-        enum mona_moon phase;
-        time_t beginning, ending;
-    } lunar;
-
-    struct mona_object objects[MONA_OBJECT_COUNT];
+    double degree, age;
+    enum mona_moon phase;
+    time_t beginning, ending;
 };
 
-void mona_chart(struct mona_chart *m, time_t utc,
-                double latitude, double longitude);
+struct mona_solar
+{
+    double degree, age;
+    enum mona_season season;
+    time_t beginning, ending;
+    time_t sunrise, sunset;
+    enum mona_day day;
+    enum mona_hour hour;
+};
+
+struct mona_zodiac mona_zodiac(struct mona_waypoint p, enum mona_object o);
+struct mona_lunar mona_lunar(struct mona_waypoint p);
+struct mona_solar mona_solar(struct mona_waypoint p);
 
 #endif

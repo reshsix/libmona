@@ -1,24 +1,32 @@
-# This file is part of MonaEphemeris.
+#
+#  This file is part of libmona
+#
+#  Libmona is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation; either
+#  version 2.1 of the License, or (at your option) any later version.
+#
+#  Libmona is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#  See the GNU Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with libmona; if not, see <https://www.gnu.org/licenses/>.
+#
 
-# MonaEphemeris is free software: you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published
-# by the Free Software Foundation, version 3.
+CFLAGS += --std=c99 -Iinclude -Wall -Wextra
 
-# MonaEphemeris is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-# See the GNU General Public License for more details.
+.PHONY: all debug clean install uninstall
 
-# You should have received a copy of the GNU General Public License
-# along with MonaEphemeris. If not, see <https://www.gnu.org/licenses/>.
-
-CFLAGS += -O2 -Iinclude -Wall -Wextra
-
-.PHONY: all clean
-
+TARGETS = build/libmaid.a build/libmaid.so build/maid
+all: CFLAGS += -march=native -O3 -DNDEBUG=1
 all: build/libmona.a
 clean:
 	rm -rf build
+
+debug: CFLAGS += -Og -pg -ggdb3
+debug: build/libmona.a
 
 install: include/mona build/libmona.a
 	cp -r include/mona    "$(DESTDIR)/usr/include/"
@@ -32,7 +40,7 @@ build/libmona.a: build/core.o build/string.o | build
 	ranlib $@
 
 build/%.o: src/%.c | build
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@ -lm
 
 build:
 	mkdir -p build

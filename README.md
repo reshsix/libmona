@@ -1,15 +1,32 @@
-# MonaEphemeris
-Astrology library for embedded devices
+<div align="center">
+    <h3 align="center">An Ephemeris Library for Astrologists</h3>
+    <a href="https://github.com/reshsix/libmona">
+        <img src="logo.png" width="96" height="96">
+    </a>
+</div>
 
-# Build
-Static library is created in build/libmona.a. Can be installed with the headers
-if wanted
+## 🪐 About
+Version: **1.0 alpha**
+
+## 🌠 Getting Started
+
+### Prerequisites
+- A C99 compiler
+
+### Build
+Files are created in `build`
 ```sh
 make
-sudo make install
 ```
 
-# Example
+### Installation
+Files are installed in `/usr/local`
+```sh
+sudo make install
+sudo ldconfig
+```
+
+### Example
 Set LATITUDE and LONGITUDE values
 ```c
 #include <time.h>
@@ -19,24 +36,23 @@ Set LATITUDE and LONGITUDE values
 #include <mona/string.h>
 
 static void
-print_solar(struct mona_chart *c)
+print_solar(struct mona_solar s)
 {
     char rise[8], set[8];
-    strftime(rise,  8,  "%H:%M",    localtime(&(c->solar.sunrise)));
-    strftime(set,   8,  "%H:%M",    localtime(&(c->solar.sunset)));
+    strftime(rise,  8,  "%H:%M",    localtime(&(s.sunrise)));
+    strftime(set,   8,  "%H:%M",    localtime(&(s.sunset)));
 
-    const char *season = mona_string(c->solar.phase, MONA_STRING_SEASON);
+    const char *season = mona_string(MONA_STRING_SEASON, s.season);
 
     char start[16], end[16];
-    strftime(start, 16, "%d/%m/%y", localtime(&(c->solar.beginning)));
-    strftime(end,   16, "%d/%m/%y", localtime(&(c->solar.ending)));
+    strftime(start, 16, "%d/%m/%y", localtime(&(s.beginning)));
+    strftime(end,   16, "%d/%m/%y", localtime(&(s.ending)));
 
-    const char *day  = mona_string(c->solar.day,  MONA_STRING_DAY);
-    const char *hour = mona_string(c->solar.hour, MONA_STRING_HOUR);
+    const char *day  = mona_string(MONA_STRING_DAY,  s.day);
+    const char *hour = mona_string(MONA_STRING_HOUR, s.hour);
 
-    printf("[ Solar cycle ]\n");
-    printf("| %-12s | %3.0f deg  |\n", "Degree",     c->solar.degree);
-    printf("| %-12s | %3.0f days |\n", "Age",        c->solar.age);
+    printf("| %-12s | %3.0f deg  |\n", "Degree",     s.degree);
+    printf("| %-12s | %3.0f days |\n", "Age",        s.age);
     printf("| %-12s | %-8s |\n",       "Sunrise",    rise);
     printf("| %-12s | %-8s |\n",       "Sunset",     set);
     printf("| %-12s | %-8s |\n",       "Season",     season);
@@ -47,49 +63,55 @@ print_solar(struct mona_chart *c)
 }
 
 static void
-print_lunar(struct mona_chart *c)
+print_lunar(struct mona_lunar l)
 {
-    const char *moon = mona_string(c->lunar.phase, MONA_STRING_MOON);
+    const char *moon = mona_string(MONA_STRING_MOON, l.phase);
 
     char start[16], end[16];
-    strftime(start, 16, "%d/%m/%y", localtime(&(c->lunar.beginning)));
-    strftime(end,   16, "%d/%m/%y", localtime(&(c->lunar.ending)));
+    strftime(start, 16, "%d/%m/%y", localtime(&(l.beginning)));
+    strftime(end,   16, "%d/%m/%y", localtime(&(l.ending)));
 
-    printf("\n[ Lunar cycle ]\n");
-    printf("| %-12s | %3.0f deg         |\n", "Degree",    c->lunar.degree);
-    printf("| %-12s | %3.0f days        |\n", "Age",       c->lunar.age);
+    printf("| %-12s | %3.0f deg         |\n", "Degree",    l.degree);
+    printf("| %-12s | %3.0f days        |\n", "Age",       l.age);
     printf("| %-12s | %-15s |\n",             "Phase",     moon);
     printf("| %-12s | %-15s |\n",             "Beginning", start);
     printf("| %-12s | %-15s |\n",             "Ending",    end);
 }
 
 static void
-print_signs(struct mona_chart *c)
+print_zodiac(enum mona_object i, struct mona_zodiac z)
 {
-    printf("\n[ Seven planets ]\n");
-    for (int i = 0; i < MONA_OBJECT_COUNT; i++)
-    {
-        struct mona_object *o = &(c->objects[i]);
-        printf("| %-12s ",        mona_string(o->id, MONA_STRING_OBJECT));
-        printf("| %-11s ",        mona_string(o->sign, MONA_STRING_SIGN));
-        printf("| %-9s ",         mona_string(o->decan, MONA_STRING_DECAN));
-        printf("| %02d' %02d\" ", o->degrees, o->seconds);
-        printf("| %3.0f deg |\n", o->position);
-
-        if (o->id == MONA_OBJECT_SATURN)
-            printf("\n[ Midpoints ]\n");
-    }
+    printf("| %-12s ",        mona_string(MONA_STRING_OBJECT, i));
+    printf("| %-11s ",        mona_string(MONA_STRING_SIGN, z.sign));
+    printf("| %-9s ",         mona_string(MONA_STRING_DECAN, z.decan));
+    printf("| %02d' %02d\" ", z.degrees, z.seconds);
+    printf("| %3.0f deg |\n", z.position);
 }
 
 extern int
 main(void)
 {
-    struct mona_chart c = {0};
-    mona_chart(&c, time(0), LATITUDE, LONGITUDE);
+    struct mona_waypoint w = mona_waypoint(time(0), LATITUDE, LONGITUDE);
 
-    print_solar(&c);
-    print_lunar(&c);
-    print_signs(&c);
+    printf("[ Solar cycle ]\n");
+    struct mona_solar s = mona_solar(w);
+    print_solar(s);
+
+    printf("\n[ Lunar cycle ]\n");
+    struct mona_lunar l = mona_lunar(w);
+    print_lunar(l);
+
+    printf("\n[ Seven planets ]\n");
+    for (int i = 0; i < MONA_OBJECT_COUNT; i++)
+    {
+        struct mona_zodiac z = mona_zodiac(w, i);
+        print_zodiac(i, z);
+
+        if (i == MONA_OBJECT_SATURN)
+            printf("\n[ Midpoints ]\n");
+    }
+
+    return 0;
 }
 ```
 
