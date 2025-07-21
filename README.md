@@ -1,26 +1,25 @@
-<div align="center">
-    <h3 align="center">An Ephemeris Library for Astrologists</h3>
-    <a href="https://github.com/reshsix/libmona">
-        <img src="logo.png" width="96" height="96">
-    </a>
-</div>
+# Ephemeris of the Moon Priestess
 
-## 🪐 About
+## 🌙 Overview
 Version: **1.0 alpha**
 
-## 🌠 Getting Started
+A small ephemeris library, suited for embedded systems
 
-### Prerequisites
+Focused on providing accurate astrology charts
+
+## 🌌 Ritual
+
+### Requirements
 - A C99 compiler
 
-### Build
-Files are created in `build`
+### Crafting
+Files are crafted in `build`
 ```sh
 make
 ```
 
-### Installation
-Files are installed in `/usr/local`
+### Inscribing
+Files are inscribed in `/usr/local`
 ```sh
 sudo make install
 sudo ldconfig

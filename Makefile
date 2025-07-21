@@ -19,7 +19,6 @@ CFLAGS += --std=c99 -Iinclude -Wall -Wextra
 
 .PHONY: all debug clean install uninstall
 
-TARGETS = build/libmaid.a build/libmaid.so build/maid
 all: CFLAGS += -march=native -O3 -DNDEBUG=1
 all: build/libmona.a
 clean:
