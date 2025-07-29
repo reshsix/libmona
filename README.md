@@ -1,4 +1,4 @@
-# Ephemeris of the Moon Priestess
+# Ephemeris of the Moon
 
 ## 🌙 Overview
 Version: **1.0 alpha**
